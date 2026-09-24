@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#6f8f72">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="晚安紀錄">
+<link rel="manifest" href="manifest.json">
+<title>晚安紀錄</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Noto Sans TC","Microsoft JhengHei",sans-serif;background:#f6f5f1;color:#333}
+  .wrap{max-width:560px;margin:auto;padding:18px 16px 90px}
+  h1{margin:6px 0 2px;font-size:27px}
+  .sub{color:#777;font-size:14px;margin-bottom:16px}
+  .card{background:white;border-radius:18px;padding:16px;margin:12px 0;box-shadow:0 2px 10px #0000000b}
+  .today{display:flex;align-items:center;justify-content:space-between}
+  .date{font-weight:700;font-size:17px}
+  button{border:0;border-radius:12px;padding:11px 14px;font-size:15px;background:#6f8f72;color:white}
+  button.secondary{background:#ecebe6;color:#555}
+  .time{font-size:30px;font-weight:750;margin-bottom:12px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+  .act{background:#f0f3ed;color:#4f6651;border:1px solid #dce5da}
+  .act:active{transform:scale(.98)}
+  .row{display:flex;gap:8px}
+  input{width:100%;border:1px solid #ddd;border-radius:12px;padding:12px;font-size:16px}
+  .log{border-left:4px solid #91a893;padding:9px 10px;margin:9px 0;background:#fafaf8;border-radius:0 10px 10px 0}
+  .log b{font-size:16px}
+  .log small{color:#888;display:block;margin-top:3px}
+  .empty{color:#999;text-align:center;padding:15px}
+  .summary{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .stat{background:#f5f5f0;border-radius:13px;padding:12px}
+  .stat strong{font-size:22px;display:block}
+  .danger{background:#f4dddd;color:#8a4545}
+  .footer{position:fixed;bottom:0;left:0;right:0;background:#ffffffee;backdrop-filter:blur(8px);padding:10px 16px;display:flex;gap:8px;justify-content:center}
+  .footer button{flex:1;max-width:260px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="today">
+    <div>
+      <h1>🌙 晚安紀錄</h1>
+      <div class="sub">看看 22:30 之後，時間都去哪裡了</div>
+    </div>
+    <button class="secondary" onclick="newDay()">今天</button>
+  </div>
+
+  <div class="card">
+    <div class="row" style="margin-bottom:10px">
+      <input type="date" id="pickDate" style="flex:1">
+      <select id="pickTime" style="flex:1;border:1px solid #ddd;border-radius:12px;padding:12px;font-size:16px;background:white">
+      </select>
+    </div>
+    <div class="sub" style="margin-bottom:10px">選擇要記錄的日期與時間（22:00 後每半小時）</div>
+    <div class="grid">
+      <button class="act" onclick="add('📱 滑手機')">📱 滑手機</button>
+      <button class="act" onclick="add('💬 聊天')">💬 聊天</button>
+      <button class="act" onclick="add('💼 處理工作')">💼 處理工作</button>
+      <button class="act" onclick="add('🖥️ PPT / Excel')">🖥️ PPT / Excel</button>
+      <button class="act" onclick="add('📸 整理照片')">📸 整理照片</button>
+      <button class="act" onclick="add('🎬 看影片')">🎬 看影片</button>
+      <button class="act" onclick="add('🛒 網購 / 逛網頁')">🛒 網購 / 逛網頁</button>
+      <button class="act" onclick="add('🧠 想事情')">🧠 想事情</button>
+      <button class="act" onclick="add('🛁 洗澡 / 梳洗')">🛁 洗澡 / 梳洗</button>
+      <button class="act" onclick="add('🛏️ 準備睡覺')">🛏️ 準備睡覺</button>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <input id="custom" placeholder="其他，例如：整理信件">
+      <button onclick="addCustom()">＋</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="today" style="margin-bottom:8px"><b>今晚紀錄</b><button class="secondary" onclick="clearDay()">清除</button></div>
+    <div id="logs"></div>
+  </div>
+
+  <div class="card">
+    <b>📊 今晚小結</b>
+    <div class="summary" style="margin-top:10px">
+      <div class="stat"><span>第一筆</span><strong id="first">—</strong></div>
+      <div class="stat"><span>最後一筆</span><strong id="last">—</strong></div>
+      <div class="stat"><span>紀錄筆數</span><strong id="count">0</strong></div>
+      <div class="stat"><span>最常做</span><strong id="top">—</strong></div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  <button onclick="add('🛏️ 上床睡覺')">🛏️ 我去睡了</button>
+</div>
+
+<script>
+const todayKey='nightLog_'+new Date().toISOString().slice(0,10);\nconst key=todayKey;
+let data=JSON.parse(localStorage.getItem(key)||'[]');
+
+function pad(n){return String(n).padStart(2,'0')}
+function timeNow(){
+  const d=new Date(); return pad(d.getHours())+':'+pad(d.getMinutes());
+}
+function render(){
+  const d=new Date();
+  document.getElementById('now')?.remove();
+  document.getElementById('date')?.remove();
+  const box=document.getElementById('logs');
+  if(!data.length){box.innerHTML='<div class="empty">22:30 後開始記就好 😊</div>'}
+  else box.innerHTML=data.map((x,i)=>`<div class="log"><b>${x.time}　${escapeHtml(x.activity)}</b><small>第 ${i+1} 筆</small></div>`).join('');
+  document.getElementById('count').textContent=data.length;
+  document.getElementById('first').textContent=data[0]?.time||'—';
+  document.getElementById('last').textContent=data.at(-1)?.time||'—';
+  const counts={}; data.forEach(x=>counts[x.activity]=(counts[x.activity]||0)+1);
+  let top='—',max=0; for(const [k,v] of Object.entries(counts)){if(v>max){top=k;max=v}}
+  document.getElementById('top').textContent=top;
+}
+function selectedDateTime(){
+  const d=document.getElementById('pickDate').value;
+  const t=document.getElementById('pickTime').value;
+  return {date:d,time:t};
+}
+function add(activity){
+  const sel=selectedDateTime();
+  if(!sel.date || !sel.time){alert('請先選擇日期與時間');return;}
+  const targetKey='nightLog_'+sel.date;
+  let target=JSON.parse(localStorage.getItem(targetKey)||'[]');
+  target.push({time:sel.time,activity});
+  target.sort((a,b)=>a.time.localeCompare(b.time));
+  localStorage.setItem(targetKey,JSON.stringify(target));
+  if(sel.date===new Date().toISOString().slice(0,10)){data=target;render();}
+  else alert(sel.date+' '+sel.time+' 已記錄：'+activity);
+}
+function addCustom(){
+  const el=document.getElementById('custom'), v=el.value.trim();
+  if(v){add('✏️ '+v);el.value='';}
+}
+function clearDay(){
+  if(confirm('確定要清除今晚紀錄嗎？')){data=[];localStorage.setItem(key,'[]');render();}
+}
+function newDay(){location.reload()}
+function escapeHtml(s){return s.replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
+function initSelectors(){
+  const now=new Date();
+  const yyyy=now.getFullYear(), mm=pad(now.getMonth()+1), dd=pad(now.getDate());
+  const dateEl=document.getElementById('pickDate');
+  dateEl.value=yyyy+'-'+mm+'-'+dd;
+  const timeEl=document.getElementById('pickTime');
+  let opts='';
+  for(let h=22;h<=23;h++){
+    for(let m of [0,30]){
+      opts += `<option value="${pad(h)}:${pad(m)}">${pad(h)}:${pad(m)}</option>`;
+    }
+  }
+  for(let h=0;h<=6;h++){
+    for(let m of [0,30]){
+      opts += `<option value="${pad(h)}:${pad(m)}">${pad(h)}:${pad(m)}</option>`;
+    }
+  }
+  timeEl.innerHTML=opts;
+  // 預設選目前時間之後最近的半小時
+  let minutes=now.getHours()*60+now.getMinutes();
+  if(minutes<22*60) minutes=22*60;
+  let rounded=Math.ceil(minutes/30)*30;
+  if(rounded>=24*60) rounded=22*60;
+  const rh=Math.floor(rounded/60), rm=rounded%60;
+  timeEl.value=pad(rh)+':'+pad(rm);
+  dateEl.addEventListener('change',()=>{
+    const k='nightLog_'+dateEl.value;
+    data=JSON.parse(localStorage.getItem(k)||'[]');
+    render();
+  });
+}
+initSelectors();
+render();
+</script>
+<script>if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js"));}</script>
+</body>
+</html>
