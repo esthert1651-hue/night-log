@@ -94,7 +94,8 @@
 </div>
 
 <script>
-const todayKey='nightLog_'+new Date().toISOString().slice(0,10);const key=todayKey;
+const todayKey='nightLog_'+new Date().toISOString().slice(0,10);
+ const key=todayKey;
 let data=JSON.parse(localStorage.getItem(key)||'[]');
 
 function pad(n){return String(n).padStart(2,'0')}
